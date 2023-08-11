@@ -1,0 +1,150 @@
+
+--Covid 19 Data Exploration 
+
+--Skills used: Joins, CTE's, Temp Tables, Windows Functions, Aggregate Functions, Creating Views, Converting Data Types
+
+SELECT *
+FROM `portfoliopro-395410.SQLproject1.CovidDeath`
+WHERE continent is not null
+ORDER BY 3,4;
+
+-- SELECT *
+-- FROM `portfoliopro-395410.SQLproject1.CovidVaccination`
+-- WHERE continent is not null
+-- ORDER BY 3,4;
+
+SELECT location ,date, total_cases, new_cases, total_deaths, population
+FROM `portfoliopro-395410.SQLproject1.CovidDeath`
+WHERE continent is not null
+ORDER BY 1,2;
+
+
+-- Looking at the Total Cases vs Total Deaths.
+-- Shows the likelihood of dying FROM COVID-19 in India.
+SELECT location ,date, total_cases, total_deaths, (total_deaths/total_cases)*100 as Death_Percentage
+FROM `portfoliopro-395410.SQLproject1.CovidDeath`
+WHERE location like "India"
+and continent is not null
+ORDER BY 1,2;
+
+
+-- Looking at the Total Cases vs Population.
+-- Shows what percentage of people in India got COVID-19.
+SELECT location ,date, population, total_cases,(total_cases/population)*100 as Percent_Population_Infected
+FROM `portfoliopro-395410.SQLproject1.CovidDeath`
+WHERE location like "India"
+and continent is not null
+ORDER BY 1,2;
+
+
+-- Countries with the highest COVID-19 infection rates compared to population.
+SELECT location, population, Max(total_cases) as Highest_Infection_Count ,MAX((total_cases/population))*100 as Percent_Population_Infected
+FROM `portfoliopro-395410.SQLproject1.CovidDeath`
+--WHERE location like "India"
+WHERE continent is not null
+group by location, population
+ORDER BY Percent_Population_Infected desc;
+
+
+-- Countries with the highest COVID-19 death tolls per capita.
+SELECT location, population, Max(total_deaths) as Total_Death_Count
+FROM `portfoliopro-395410.SQLproject1.CovidDeath`
+WHERE continent is not null
+group by location,population
+ORDER BY Total_Death_Count desc;
+
+
+-- BREAKING DOWN BY CONTINENTS
+--Looking at continents with the highest COVID-19 death tolls.
+SELECT continent, Max(total_deaths) as Total_Death_Count
+FROM `portfoliopro-395410.SQLproject1.CovidDeath`
+WHERE continent is not null
+group by continent
+ORDER BY Total_Death_Count desc;
+
+
+-- GLOBAL NUMBERS
+SELECT date, SUM(new_cases) as New_Cases, SUM(new_deaths) as New_Deaths, SUM(new_deaths)/ SUM(new_cases)* 100 as Death_Percentage
+FROM `portfoliopro-395410.SQLproject1.CovidDeath`
+WHERE continent is not null 
+group by date
+ORDER BY 1,2;
+
+
+--GLOBAL NUMBERS (Total cases, Total deaths and Death Percentage)
+--SELECT  SUM(new_cases) as New_Cases, SUM(new_deaths) as New_Deaths, SUM(new_deaths)/ SUM(new_cases)* 100 as Death_Percentage
+--FROM `portfoliopro-395410.SQLproject1.CovidDeath`
+--WHERE continent is not null 
+--group by date
+--ORDER BY 1,2;
+
+
+--TOTAL POPULATION VS TOTAL VACCINATION.
+SELECT dea.continent,dea.location, dea.date, dea.population, vac.new_vaccinations
+,SUM(vac.new_vaccinations) Over (partition by dea.location ORDER BY dea.location,dea.date) as Rolling_People_Vaccinated
+ --, (Rolling_People_Vaccinated/population)*100
+From `portfoliopro-395410.SQLproject1.CovidDeath` dea
+Join `portfoliopro-395410.SQLproject1.CovidVaccination` vac
+  On dea.location= vac.location
+  and dea.date=vac.date
+ WHERE dea.continent is not null
+ ORDER BY 2,3;
+
+
+-- USE CTE
+WITH Pop_vs_Vacc 
+as
+(
+SELECT dea.continent,dea.location, dea.date, dea.population, vac.new_vaccinations
+,SUM(vac.new_vaccinations) Over (partition by dea.location ORDER BY dea.location,dea.date) as Rolling_People_Vaccinated
+ --, (Rolling_People_Vaccinated/population)*100
+From `portfoliopro-395410.SQLproject1.CovidDeath` dea
+Join `portfoliopro-395410.SQLproject1.CovidVaccination` vac
+  On dea.location= vac.location
+  and dea.date=vac.date
+ WHERE dea.continent is not null
+ --ORDER BY 2,3
+)
+SELECT*, (Rolling_People_Vaccinated/population)*100 
+From Pop_vs_Vacc;
+
+
+-- TEMP TABLE
+CREATE TEMPORARY TABLE Percentage_Population_Vaccinated
+(
+  continent string,
+  location string,
+  date date,
+  population int,
+  new_vaccination int,
+  Rolling_People_Vaccinated int
+ );
+ 
+ INSERT INTO Percentage_Population_Vaccinated
+ SELECT dea.continent,dea.location, dea.date, dea.population, vac.new_vaccinations
+,SUM(vac.new_vaccinations) Over (partition by dea.location ORDER BY dea.location,dea.date) as Rolling_People_Vaccinated
+ --, (Rolling_People_Vaccinated/population)*100
+From `portfoliopro-395410.SQLproject1.CovidDeath` dea
+Join `portfoliopro-395410.SQLproject1.CovidVaccination` vac
+  On dea.location= vac.location
+  and dea.date=vac.date
+ WHERE dea.continent is not null
+ --ORDER BY 2,3
+ ;
+
+SELECT *, (Rolling_People_Vaccinated/population)*100
+FROM Percentage_Population_Vaccinated;
+
+--Creating view to store data for later visualisation
+Create View Percentage_Population_Vaccinated as 
+SELECT dea.continent,dea.location, dea.date, dea.population, vac.new_vaccinations
+,SUM(vac.new_vaccinations) Over (partition by dea.location ORDER BY dea.location,dea.date) as Rolling_People_Vaccinated
+ --, (Rolling_People_Vaccinated/population)*100
+From `portfoliopro-395410.SQLproject1.CovidDeath` dea
+Join `portfoliopro-395410.SQLproject1.CovidVaccination` vac
+  On dea.location= vac.location
+  and dea.date=vac.date
+ WHERE dea.continent is not null
+ --ORDER BY 2,3;
+
+
